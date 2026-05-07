@@ -1,0 +1,1763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Eye Trainer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+
+    header h1 { font-size: 1.3rem; color: #58a6ff; letter-spacing: 1px; }
+
+    nav { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    nav button {
+      padding: 8px 16px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #c9d1d9;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+
+    nav button:hover, nav button.active {
+      background: #58a6ff;
+      color: #0d1117;
+      border-color: #58a6ff;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px 16px;
+      min-height: calc(100vh - 65px);
+    }
+
+    .exercise-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #58a6ff;
+    }
+
+    .exercise-desc {
+      color: #8b949e;
+      margin-bottom: 24px;
+      text-align: center;
+      max-width: 500px;
+      font-size: 0.95rem;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 95vw;
+      max-width: 1400px;
+      height: calc(100vh - 260px);
+      min-height: 400px;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-primary { background: #238636; color: #fff; }
+    .btn-primary:hover { background: #2ea043; }
+    .btn-danger  { background: #da3633; color: #fff; }
+    .btn-danger:hover { background: #f85149; }
+    .btn-secondary { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+    .btn-secondary:hover { background: #30363d; }
+
+    .stats {
+      margin-top: 20px;
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .stat-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 12px 24px;
+      text-align: center;
+    }
+
+    .stat-box .val { font-size: 1.8rem; font-weight: 700; color: #58a6ff; }
+    .stat-box .lbl { font-size: 0.78rem; color: #8b949e; margin-top: 2px; }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 12px;
+      color: #8b949e;
+      font-size: 0.9rem;
+    }
+
+    input[type=range] {
+      accent-color: #58a6ff;
+      width: 150px;
+    }
+
+    .instruction-box {
+      background: #161b22;
+      border: 1px solid #58a6ff44;
+      border-radius: 10px;
+      padding: 14px 24px;
+      max-width: 500px;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: #c9d1d9;
+      line-height: 1.6;
+    }
+
+    .hidden { display: none !important; }
+
+    #rds-tab-game.active-tab, #rds-tab-conv.active-tab {
+      background: #58a6ff;
+      color: #0d1117;
+      border-color: #58a6ff;
+    }
+
+    /* Timer ring */
+    #timer-svg { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>👁 Eye Trainer</h1>
+  <nav id="nav">
+    <button class="active" data-ex="pursuit">Smooth Pursuit</button>
+    <button data-ex="saccade">Saccades</button>
+    <button data-ex="figure8">Figure 8</button>
+    <button data-ex="focus">Focus Shift</button>
+    <button data-ex="timer">20-20-20</button>
+    <button data-ex="palming">Palming</button>
+    <button data-ex="rds">RDS Stereogram</button>
+    <button data-ex="convergence">Convergence Rings</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ===== SMOOTH PURSUIT ===== -->
+  <div id="ex-pursuit">
+    <div class="exercise-title">Smooth Pursuit</div>
+    <div class="exercise-desc">Follow the moving dot with your eyes without moving your head.</div>
+    <div class="canvas-wrap">
+      <canvas id="c-pursuit"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="pursuit-start">Start</button>
+      <button class="btn btn-danger hidden" id="pursuit-stop">Stop</button>
+    </div>
+    <div class="slider-row">
+      Speed:
+      <input type="range" id="pursuit-speed" min="1" max="10" value="4">
+      <span id="pursuit-speed-val">4</span>
+      &nbsp;&nbsp; Pattern:
+      <select id="pursuit-pattern" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:4px 8px;">
+        <option value="circle">Circle</option>
+        <option value="h">Horizontal</option>
+        <option value="v">Vertical</option>
+        <option value="lissajous">Lissajous</option>
+      </select>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="val" id="pursuit-time">0</div><div class="lbl">Seconds</div></div>
+    </div>
+  </div>
+
+  <!-- ===== SACCADES ===== -->
+  <div id="ex-saccade" class="hidden">
+    <div class="exercise-title">Saccade Training</div>
+    <div class="exercise-desc">Quickly jump your gaze between the highlighted targets as fast as you can.</div>
+    <div class="canvas-wrap">
+      <canvas id="c-saccade"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="saccade-start">Start</button>
+      <button class="btn btn-danger hidden" id="saccade-stop">Stop</button>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="val" id="saccade-score">0</div><div class="lbl">Taps</div></div>
+      <div class="stat-box"><div class="val" id="saccade-time">30</div><div class="lbl">Seconds Left</div></div>
+    </div>
+  </div>
+
+  <!-- ===== FIGURE 8 ===== -->
+  <div id="ex-figure8" class="hidden">
+    <div class="exercise-title">Figure 8</div>
+    <div class="exercise-desc">Trace the figure-8 path with your eyes, keeping your head still.</div>
+    <div class="canvas-wrap">
+      <canvas id="c-figure8"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="f8-start">Start</button>
+      <button class="btn btn-danger hidden" id="f8-stop">Stop</button>
+    </div>
+    <div class="slider-row">
+      Speed: <input type="range" id="f8-speed" min="1" max="8" value="3">
+      <span id="f8-speed-val">3</span>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="val" id="f8-laps">0</div><div class="lbl">Laps</div></div>
+      <div class="stat-box"><div class="val" id="f8-time">0</div><div class="lbl">Seconds</div></div>
+    </div>
+  </div>
+
+  <!-- ===== FOCUS SHIFT ===== -->
+  <div id="ex-focus" class="hidden">
+    <div class="exercise-title">Focus Shift</div>
+    <div class="exercise-desc">Alternate focusing on the near dot and the far text. Hold each focus for 2 seconds.</div>
+    <div class="canvas-wrap" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:32px;">
+      <div id="focus-far" style="font-size:1.1rem;color:#8b949e;letter-spacing:4px;transition:all 0.5s;">Look at me — I am FAR</div>
+      <div id="focus-near-dot" style="width:24px;height:24px;border-radius:50%;background:#58a6ff;transition:all 0.5s;opacity:0.3;"></div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="focus-start">Start</button>
+      <button class="btn btn-danger hidden" id="focus-stop">Stop</button>
+    </div>
+    <div class="instruction-box" id="focus-instruction">Press Start to begin. Hold your finger close to your nose near the dot.</div>
+    <div class="stats">
+      <div class="stat-box"><div class="val" id="focus-cycles">0</div><div class="lbl">Cycles</div></div>
+    </div>
+  </div>
+
+  <!-- ===== 20-20-20 TIMER ===== -->
+  <div id="ex-timer" class="hidden">
+    <div class="exercise-title">20-20-20 Rule</div>
+    <div class="exercise-desc">Every 20 minutes, look at something 20 feet away for 20 seconds. Reduces eye strain.</div>
+    <div class="canvas-wrap" style="display:flex;align-items:center;justify-content:center;">
+      <svg id="timer-svg" width="220" height="220" viewBox="0 0 220 220">
+        <circle cx="110" cy="110" r="95" fill="none" stroke="#21262d" stroke-width="12"/>
+        <circle id="timer-ring" cx="110" cy="110" r="95" fill="none" stroke="#58a6ff"
+          stroke-width="12" stroke-linecap="round"
+          stroke-dasharray="597" stroke-dashoffset="0"
+          transform="rotate(-90 110 110)"/>
+        <text x="110" y="100" text-anchor="middle" fill="#e6edf3" font-size="38" font-weight="700" id="timer-mm">20:00</text>
+        <text x="110" y="135" text-anchor="middle" fill="#8b949e" font-size="15" id="timer-label">Work Time</text>
+      </svg>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="timer-start">Start Session</button>
+      <button class="btn btn-danger hidden" id="timer-stop">Stop</button>
+      <button class="btn btn-secondary" id="timer-reset">Reset</button>
+    </div>
+    <div class="instruction-box" id="timer-msg">Work for 20 minutes, then rest your eyes for 20 seconds by looking 20 feet away.</div>
+  </div>
+
+  <!-- ===== PALMING ===== -->
+  <div id="ex-palming" class="hidden">
+    <div class="exercise-title">Palming Relaxation</div>
+    <div class="exercise-desc">Cover your eyes with your palms. Breathe deeply and relax in complete darkness.</div>
+    <div class="canvas-wrap" style="display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+      <div style="font-size:5rem;">🤲</div>
+      <div id="palm-breath-text" style="font-size:1.4rem;color:#58a6ff;font-weight:600;">Ready</div>
+      <div id="palm-circle" style="width:80px;height:80px;border-radius:50%;background:#58a6ff22;border:2px solid #58a6ff44;transition:all 2s ease;"></div>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="palm-start">Start</button>
+      <button class="btn btn-danger hidden" id="palm-stop">Stop</button>
+    </div>
+    <div class="slider-row">
+      Duration: <input type="range" id="palm-duration" min="1" max="5" value="2">
+      <span id="palm-duration-val">2</span> min
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="val" id="palm-time">0:00</div><div class="lbl">Time Left</div></div>
+      <div class="stat-box"><div class="val" id="palm-breaths">0</div><div class="lbl">Breaths</div></div>
+    </div>
+  </div>
+
+  <!-- ===== RDS STEREOGRAM ===== -->
+  <div id="ex-rds" class="hidden">
+    <div class="exercise-title">RDS Stereogram</div>
+
+    <!-- mode tabs -->
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="rds-tab-game" onclick="rdsSetMode('game')">🎮 Position Game</button>
+      <button class="btn btn-secondary" id="rds-tab-conv" onclick="rdsSetMode('conv')">📏 Convergence Test</button>
+      <button class="btn btn-secondary" id="rds-tab-comb" onclick="rdsSetMode('comb')">🔬 Combined Test</button>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="c-rds"></canvas>
+    </div>
+
+    <!-- GAME mode controls -->
+    <div id="rds-game-ui">
+      <div class="exercise-desc" style="margin-top:10px;">A circle is hidden in one of four positions. Press ↑ ↓ ← → to say where you see it floating in 3D.</div>
+      <div class="controls">
+        <button class="btn btn-primary" id="rds-start">Start Game</button>
+        <button class="btn btn-danger hidden" id="rds-stop">Stop</button>
+        <button class="btn btn-secondary" id="rds-reveal">Reveal</button>
+      </div>
+      <div class="slider-row">
+        Depth:
+        <input type="range" id="rds-disparity" min="4" max="30" value="14">
+        <span id="rds-disparity-val">14</span>px
+        &nbsp;&nbsp; Dot size:
+        <input type="range" id="rds-dotsize" min="2" max="10" value="5">
+        <span id="rds-dotsize-val">5</span>px
+      </div>
+      <div class="stats">
+        <div class="stat-box"><div class="val" id="rds-score">0</div><div class="lbl">Score</div></div>
+        <div class="stat-box"><div class="val" id="rds-time">30</div><div class="lbl">Seconds Left</div></div>
+        <div class="stat-box"><div class="val" id="rds-streak">0</div><div class="lbl">Streak</div></div>
+      </div>
+      <div class="instruction-box" id="rds-hint">Press <b>Start Game</b>, then use arrow keys ↑ ↓ ← → to identify where the 3D circle appears.</div>
+    </div>
+
+    <!-- CONVERGENCE TEST mode controls -->
+    <div id="rds-conv-ui" class="hidden">
+      <div class="exercise-desc" style="margin-top:10px;">Two random-dot circles (red = left eye, green = right eye) slowly separate. Fuse them through your glasses. Press <b>SPACE</b> when you lose fusion — records your max convergence.</div>
+      <div class="controls">
+        <button class="btn btn-primary" id="conv-test-start">Start</button>
+        <button class="btn btn-danger hidden" id="conv-test-stop">Stop</button>
+        <button class="btn btn-secondary" id="conv-test-record">Lost Fusion (Space)</button>
+      </div>
+      <div class="slider-row">
+        Speed:
+        <input type="range" id="conv-test-speed" min="1" max="10" value="3">
+        <span id="conv-test-speed-val">3</span>
+        &nbsp;&nbsp; Dot size:
+        <input type="range" id="conv-test-dotsize" min="2" max="10" value="6">
+        <span id="conv-test-dotsize-val">6</span>px
+        &nbsp;&nbsp; Direction:
+        <select id="conv-test-dir" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:4px 8px;">
+          <option value="h">Horizontal</option>
+          <option value="v">Vertical</option>
+        </select>
+      </div>
+      <div class="stats">
+        <div class="stat-box"><div class="val" id="conv-test-sep">0</div><div class="lbl">Separation (px)</div></div>
+        <div class="stat-box"><div class="val" id="conv-test-best">—</div><div class="lbl">Best (px)</div></div>
+        <div class="stat-box"><div class="val" id="conv-test-attempts">0</div><div class="lbl">Attempts</div></div>
+      </div>
+      <div id="conv-test-history" style="margin-top:12px;color:#8b949e;font-size:0.85rem;text-align:center;"></div>
+    </div>
+
+    <!-- COMBINED TEST mode controls -->
+    <div id="rds-comb-ui" class="hidden">
+      <div class="exercise-desc" style="margin-top:10px;">Circles drift apart by <b>0.5Δ every 10 seconds</b>. During each window, find where the 3D circle is and press ↑ ↓ ← →. Press <b>SPACE</b> when you lose fusion.</div>
+      <div class="controls">
+        <button class="btn btn-primary" id="comb-start">Start</button>
+        <button class="btn btn-danger hidden" id="comb-stop">Stop</button>
+        <button class="btn btn-secondary" id="comb-fusion-lost">Lost Fusion (Space)</button>
+      </div>
+      <div class="slider-row">
+        px / 0.5Δ:
+        <input type="range" id="comb-pxd" min="8" max="60" value="22">
+        <span id="comb-pxd-val">22</span>
+        <span style="color:#555;font-size:0.8rem;">&nbsp;(adjust for screen distance)</span>
+        &nbsp;&nbsp; Dot size:
+        <input type="range" id="comb-dotsize" min="2" max="10" value="5">
+        <span id="comb-dotsize-val">5</span>px
+        &nbsp;&nbsp; Depth:
+        <input type="range" id="comb-disparity" min="4" max="24" value="12">
+        <span id="comb-disparity-val">12</span>px
+      </div>
+      <div class="stats">
+        <div class="stat-box"><div class="val" id="comb-diopter">0.0Δ</div><div class="lbl">Current Demand</div></div>
+        <div class="stat-box"><div class="val" id="comb-window">10</div><div class="lbl">Seconds Left</div></div>
+        <div class="stat-box"><div class="val" id="comb-score">0</div><div class="lbl">Correct</div></div>
+        <div class="stat-box"><div class="val" id="comb-maxd">—</div><div class="lbl">Max Δ Fused</div></div>
+      </div>
+      <div class="instruction-box" id="comb-hint">Press Start. Use ↑ ↓ ← → to identify position. SPACE when you can no longer fuse.</div>
+    </div>
+  </div>
+
+  <!-- ===== CONVERGENCE RINGS ===== -->
+  <div id="ex-convergence" class="hidden">
+    <div class="exercise-title">Convergence Rings</div>
+    <div class="exercise-desc">Wear your red-green glasses. Converge or diverge your eyes until the two circles fuse into one. A hidden number will appear inside when fused correctly.</div>
+    <div class="canvas-wrap">
+      <canvas id="c-convergence"></canvas>
+    </div>
+    <div class="controls">
+      <button class="btn btn-primary" id="conv-start">Start</button>
+      <button class="btn btn-danger hidden" id="conv-stop">Stop</button>
+    </div>
+    <div class="slider-row">
+      Separation:
+      <input type="range" id="conv-sep" min="0" max="300" value="120">
+      <span id="conv-sep-val">120</span>px
+      &nbsp;&nbsp; Mode:
+      <select id="conv-mode" style="background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:4px 8px;">
+        <option value="static">Static</option>
+        <option value="breathing">Breathing (auto)</option>
+        <option value="jump">Jump training</option>
+      </select>
+    </div>
+    <div class="instruction-box">
+      🔴 Red lens = left eye &nbsp;|&nbsp; 🟢 Green lens = right eye<br>
+      Converge until circles overlap → the number inside appears in depth.
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+
+let raf = null;
+let intervals = [];
+
+function fitCanvas(canvas) {
+  const wrap = canvas.parentElement;
+  canvas.width  = wrap.clientWidth;
+  canvas.height = wrap.clientHeight;
+}
+
+// fit all canvases on load and resize
+['c-pursuit','c-saccade','c-figure8','c-rds','c-convergence'].forEach(id => {
+  const c = $(id);
+  fitCanvas(c);
+  new ResizeObserver(() => fitCanvas(c)).observe(c.parentElement);
+});
+
+function stopAll() {
+  if (raf) { cancelAnimationFrame(raf); raf = null; }
+  intervals.forEach(clearInterval);
+  intervals = [];
+}
+
+// ─── Nav ──────────────────────────────────────────────────────────────────────
+const exercises = ['pursuit','saccade','figure8','focus','timer','palming','rds','convergence'];
+const sections  = { pursuit:'ex-pursuit', saccade:'ex-saccade', figure8:'ex-figure8',
+                     focus:'ex-focus', timer:'ex-timer', palming:'ex-palming',
+                     rds:'ex-rds', convergence:'ex-convergence' };
+
+$('nav').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    stopAll();
+    resetAll();
+    $('nav').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    exercises.forEach(ex => $(`ex-${ex}`).classList.add('hidden'));
+    $(sections[btn.dataset.ex]).classList.remove('hidden');
+  });
+});
+
+function resetAll() {
+  // pursuit
+  $('pursuit-start').classList.remove('hidden');
+  $('pursuit-stop').classList.add('hidden');
+  $('pursuit-time').textContent = '0';
+  const pc = $('c-pursuit'); clearCanvas(pc);
+
+  // saccade
+  $('saccade-start').classList.remove('hidden');
+  $('saccade-stop').classList.add('hidden');
+  $('saccade-score').textContent = '0';
+  $('saccade-time').textContent = '30';
+  clearCanvas($('c-saccade'));
+
+  // figure8
+  $('f8-start').classList.remove('hidden');
+  $('f8-stop').classList.add('hidden');
+  $('f8-laps').textContent = '0';
+  $('f8-time').textContent = '0';
+  clearCanvas($('c-figure8'));
+
+  // focus
+  $('focus-start').classList.remove('hidden');
+  $('focus-stop').classList.add('hidden');
+  $('focus-cycles').textContent = '0';
+  $('focus-instruction').textContent = 'Press Start to begin.';
+  $('focus-far').style.opacity = '0.3';
+  $('focus-near-dot').style.opacity = '0.3';
+
+  // timer
+  $('timer-start').classList.remove('hidden');
+  $('timer-stop').classList.add('hidden');
+  $('timer-mm').textContent = '20:00';
+  $('timer-label').textContent = 'Work Time';
+  $('timer-ring').style.stroke = '#58a6ff';
+  $('timer-ring').setAttribute('stroke-dashoffset','0');
+  $('timer-msg').textContent = 'Work for 20 minutes, then rest your eyes for 20 seconds.';
+
+  // palming
+  $('palm-start').classList.remove('hidden');
+  $('palm-stop').classList.add('hidden');
+  $('palm-breath-text').textContent = 'Ready';
+  $('palm-time').textContent = '0:00';
+  $('palm-breaths').textContent = '0';
+  $('palm-circle').style.width = '80px';
+  $('palm-circle').style.height = '80px';
+
+  // rds
+  $('rds-start').classList.remove('hidden');
+  $('rds-stop').classList.add('hidden');
+  $('rds-score').textContent  = '0';
+  $('rds-time').textContent   = '30';
+  $('rds-streak').textContent = '0';
+  $('conv-test-start').classList.remove('hidden');
+  $('conv-test-stop').classList.add('hidden');
+  $('conv-test-sep').textContent = '0';
+  clearCanvas($('c-rds'));
+  $('rds-hint').textContent = 'Press Start Game, then use arrow keys ↑ ↓ ← → to identify where the 3D circle appears.';
+
+  // convergence
+  $('conv-start').classList.remove('hidden');
+  $('conv-stop').classList.add('hidden');
+  clearCanvas($('c-convergence'));
+}
+
+function clearCanvas(c) {
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,c.width,c.height);
+}
+
+// ─── 1. SMOOTH PURSUIT ────────────────────────────────────────────────────────
+(function() {
+  const c = $('c-pursuit');
+  const ctx = c.getContext('2d');
+  let t = 0, running = false, elapsed = 0, lastTime = null, trail = [];
+
+  function draw(ts) {
+    if (!running) return;
+    if (!lastTime) lastTime = ts;
+    const dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+    elapsed += dt;
+    $('pursuit-time').textContent = Math.floor(elapsed);
+
+    const speed = parseFloat($('pursuit-speed').value) * 0.4;
+    const pattern = $('pursuit-pattern').value;
+    t += dt * speed;
+
+    const cx = c.width/2, cy = c.height/2;
+    const rx = cx - 50, ry = cy - 50;
+    let x, y;
+
+    if (pattern === 'circle') {
+      x = cx + rx * Math.cos(t);
+      y = cy + ry * Math.sin(t);
+    } else if (pattern === 'h') {
+      x = cx + rx * Math.sin(t);
+      y = cy;
+    } else if (pattern === 'v') {
+      x = cx;
+      y = cy + ry * Math.sin(t);
+    } else {
+      x = cx + rx * Math.sin(t);
+      y = cy + ry * Math.sin(2*t + Math.PI/4);
+    }
+
+    trail.push({x, y});
+    if (trail.length > 60) trail.shift();
+
+    ctx.clearRect(0,0,c.width,c.height);
+
+    // crosshair guides
+    ctx.strokeStyle = '#ffffff08';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx,0); ctx.lineTo(cx,c.height); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,cy); ctx.lineTo(c.width,cy); ctx.stroke();
+
+    // trail
+    for (let i=0; i<trail.length; i++) {
+      const alpha = i/trail.length * 0.4;
+      ctx.beginPath();
+      ctx.arc(trail[i].x, trail[i].y, 4, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(88,166,255,${alpha})`;
+      ctx.fill();
+    }
+
+    // dot
+    ctx.beginPath();
+    ctx.arc(x, y, 16, 0, Math.PI*2);
+    ctx.fillStyle = '#58a6ff33';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, Math.PI*2);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fill();
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  $('pursuit-start').onclick = () => {
+    running = true; elapsed = 0; t = 0; lastTime = null; trail = [];
+    $('pursuit-start').classList.add('hidden');
+    $('pursuit-stop').classList.remove('hidden');
+    raf = requestAnimationFrame(draw);
+  };
+  $('pursuit-stop').onclick = () => {
+    running = false;
+    $('pursuit-start').classList.remove('hidden');
+    $('pursuit-stop').classList.add('hidden');
+    cancelAnimationFrame(raf);
+  };
+  $('pursuit-speed').oninput = e => $('pursuit-speed-val').textContent = e.target.value;
+})();
+
+// ─── 2. SACCADES ──────────────────────────────────────────────────────────────
+(function() {
+  const c = $('c-saccade');
+  const ctx = c.getContext('2d');
+  let targets = [], score = 0, timeLeft = 30, running = false;
+  const NTARGETS = 6;
+  let activeIdx = 0;
+
+  function genTargets() {
+    fitCanvas(c);
+    targets = [];
+    for (let i=0; i<NTARGETS; i++) {
+      targets.push({
+        x: 60 + Math.random() * (c.width - 120),
+        y: 60 + Math.random() * (c.height - 120),
+      });
+    }
+    activeIdx = Math.floor(Math.random() * NTARGETS);
+  }
+
+  function drawTargets() {
+    ctx.clearRect(0,0,c.width,c.height);
+    targets.forEach((t, i) => {
+      const isActive = i === activeIdx;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, isActive ? 26 : 18, 0, Math.PI*2);
+      ctx.fillStyle = isActive ? '#f7851533' : '#30363d';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, isActive ? 16 : 10, 0, Math.PI*2);
+      ctx.fillStyle = isActive ? '#f78515' : '#484f58';
+      ctx.fill();
+      if (isActive) {
+        ctx.strokeStyle = '#f7851588';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, 28, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    });
+  }
+
+  c.addEventListener('click', e => {
+    if (!running) return;
+    const rect = c.getBoundingClientRect();
+    const scaleX = c.width / rect.width;
+    const scaleY = c.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    const t = targets[activeIdx];
+    const dist = Math.hypot(mx - t.x, my - t.y);
+    if (dist < 28) {
+      score++;
+      $('saccade-score').textContent = score;
+      activeIdx = Math.floor(Math.random() * NTARGETS);
+      while (activeIdx === targets.indexOf(t) && NTARGETS > 1)
+        activeIdx = Math.floor(Math.random() * NTARGETS);
+      drawTargets();
+    }
+  });
+
+  $('saccade-start').onclick = () => {
+    running = true; score = 0; timeLeft = 30;
+    $('saccade-score').textContent = '0';
+    $('saccade-time').textContent = '30';
+    $('saccade-start').classList.add('hidden');
+    $('saccade-stop').classList.remove('hidden');
+    genTargets(); drawTargets();
+    const iv = setInterval(() => {
+      timeLeft--;
+      $('saccade-time').textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(iv);
+        running = false;
+        ctx.clearRect(0,0,c.width,c.height);
+        ctx.fillStyle = '#58a6ff';
+        ctx.font = 'bold 28px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Done! You tapped ${score} targets.`, c.width/2, c.height/2);
+        $('saccade-start').classList.remove('hidden');
+        $('saccade-stop').classList.add('hidden');
+      }
+    }, 1000);
+    intervals.push(iv);
+  };
+  $('saccade-stop').onclick = () => {
+    running = false;
+    stopAll();
+    $('saccade-start').classList.remove('hidden');
+    $('saccade-stop').classList.add('hidden');
+    clearCanvas(c);
+  };
+})();
+
+// ─── 3. FIGURE 8 ──────────────────────────────────────────────────────────────
+(function() {
+  const c = $('c-figure8');
+  const ctx = c.getContext('2d');
+  let t = 0, running = false, elapsed = 0, laps = 0, lastTime = null, trail = [];
+
+  function drawF8(ts) {
+    if (!running) return;
+    if (!lastTime) lastTime = ts;
+    const dt = (ts - lastTime)/1000;
+    lastTime = ts;
+    elapsed += dt;
+    $('f8-time').textContent = Math.floor(elapsed);
+
+    const speed = parseFloat($('f8-speed').value) * 0.5;
+    const prevT = t;
+    t += dt * speed;
+    if (Math.floor(t / (Math.PI*2)) > Math.floor(prevT / (Math.PI*2))) {
+      laps++;
+      $('f8-laps').textContent = laps;
+    }
+
+    const cx = c.width/2, cy = c.height/2;
+    const a = cx * 0.85, b = cy * 0.75;
+    const x = cx + a * Math.sin(t);
+    const y = cy + b * Math.sin(2*t) / 2;
+
+    trail.push({x,y});
+    if (trail.length > 80) trail.shift();
+
+    ctx.clearRect(0,0,c.width,c.height);
+
+    // draw path outline
+    ctx.beginPath();
+    for (let i=0; i<=200; i++) {
+      const tt = (i/200) * Math.PI*2;
+      const px = cx + a * Math.sin(tt);
+      const py = cy + b * Math.sin(2*tt)/2;
+      i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    }
+    ctx.strokeStyle = '#ffffff0a';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // trail
+    for (let i=0; i<trail.length; i++) {
+      const alpha = (i/trail.length)*0.5;
+      ctx.beginPath();
+      ctx.arc(trail[i].x, trail[i].y, 4, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(163,113,247,${alpha})`;
+      ctx.fill();
+    }
+
+    // dot
+    ctx.beginPath();
+    ctx.arc(x, y, 16, 0, Math.PI*2);
+    ctx.fillStyle = '#a371f733';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, 10, 0, Math.PI*2);
+    ctx.fillStyle = '#a371f7';
+    ctx.fill();
+
+    raf = requestAnimationFrame(drawF8);
+  }
+
+  $('f8-start').onclick = () => {
+    running = true; t = 0; elapsed = 0; laps = 0; lastTime = null; trail = [];
+    $('f8-laps').textContent = '0';
+    $('f8-start').classList.add('hidden');
+    $('f8-stop').classList.remove('hidden');
+    raf = requestAnimationFrame(drawF8);
+  };
+  $('f8-stop').onclick = () => {
+    running = false;
+    $('f8-start').classList.remove('hidden');
+    $('f8-stop').classList.add('hidden');
+    cancelAnimationFrame(raf);
+  };
+  $('f8-speed').oninput = e => $('f8-speed-val').textContent = e.target.value;
+})();
+
+// ─── 4. FOCUS SHIFT ───────────────────────────────────────────────────────────
+(function() {
+  let running = false, cycles = 0;
+  const states = [
+    { text: 'Focus on the NEAR dot (close to your nose)', near: 1, far: 0.2, color: '#58a6ff' },
+    { text: 'Now shift focus to the FAR text', near: 0.2, far: 1, color: '#3fb950' },
+  ];
+  let si = 0;
+
+  function step() {
+    if (!running) return;
+    const s = states[si];
+    $('focus-instruction').textContent = s.text;
+    $('focus-near-dot').style.opacity = s.near;
+    $('focus-near-dot').style.boxShadow = si===0 ? '0 0 20px #58a6ff' : 'none';
+    $('focus-far').style.opacity = s.far;
+    $('focus-far').style.textShadow = si===1 ? '0 0 16px #3fb950' : 'none';
+    si = (si+1) % states.length;
+    if (si === 0) { cycles++; $('focus-cycles').textContent = cycles; }
+    const iv = setTimeout(step, 2500);
+    intervals.push(iv);
+  }
+
+  $('focus-start').onclick = () => {
+    running = true; cycles = 0; si = 0;
+    $('focus-start').classList.add('hidden');
+    $('focus-stop').classList.remove('hidden');
+    step();
+  };
+  $('focus-stop').onclick = () => {
+    running = false;
+    stopAll();
+    $('focus-start').classList.remove('hidden');
+    $('focus-stop').classList.add('hidden');
+    $('focus-far').style.opacity = 0.3;
+    $('focus-near-dot').style.opacity = 0.3;
+    $('focus-instruction').textContent = 'Press Start to begin.';
+  };
+})();
+
+// ─── 5. 20-20-20 TIMER ────────────────────────────────────────────────────────
+(function() {
+  const WORK = 20*60, REST = 20;
+  let running = false, phase = 'work', remaining = WORK;
+  const ring = $('timer-ring');
+  const CIRCUMFERENCE = 2 * Math.PI * 95;
+
+  function updateRing(frac, color) {
+    ring.setAttribute('stroke-dashoffset', CIRCUMFERENCE * (1-frac));
+    ring.style.stroke = color;
+  }
+
+  function fmt(s) {
+    return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }
+
+  $('timer-start').onclick = () => {
+    running = true; phase = 'work'; remaining = WORK;
+    $('timer-start').classList.add('hidden');
+    $('timer-stop').classList.remove('hidden');
+    $('timer-label').textContent = 'Work Time';
+    $('timer-ring').style.stroke = '#58a6ff';
+
+    const iv = setInterval(() => {
+      remaining--;
+      const total = phase==='work' ? WORK : REST;
+      $('timer-mm').textContent = fmt(remaining);
+      updateRing(remaining/total, phase==='work' ? '#58a6ff' : '#3fb950');
+
+      if (remaining <= 0) {
+        if (phase === 'work') {
+          phase = 'rest'; remaining = REST;
+          $('timer-label').textContent = 'Rest — Look Away!';
+          $('timer-msg').textContent = '👀 Look at something 20 feet away!';
+          updateRing(1, '#3fb950');
+          if (Notification.permission === 'granted')
+            new Notification('Eye Break!', { body: 'Look 20 feet away for 20 seconds.' });
+        } else {
+          phase = 'work'; remaining = WORK;
+          $('timer-label').textContent = 'Work Time';
+          $('timer-msg').textContent = 'Good! Back to work. Eyes relaxed ✓';
+          updateRing(1, '#58a6ff');
+        }
+      }
+    }, 1000);
+    intervals.push(iv);
+
+    if (Notification.permission === 'default') Notification.requestPermission();
+  };
+
+  $('timer-stop').onclick = () => {
+    running = false; stopAll();
+    $('timer-start').classList.remove('hidden');
+    $('timer-stop').classList.add('hidden');
+  };
+  $('timer-reset').onclick = () => {
+    stopAll(); running = false;
+    remaining = WORK; phase = 'work';
+    $('timer-mm').textContent = '20:00';
+    $('timer-label').textContent = 'Work Time';
+    $('timer-ring').style.stroke = '#58a6ff';
+    updateRing(1,'#58a6ff');
+    $('timer-start').classList.remove('hidden');
+    $('timer-stop').classList.add('hidden');
+    $('timer-msg').textContent = 'Work for 20 minutes, then rest your eyes for 20 seconds.';
+  };
+})();
+
+// ─── 6. PALMING ───────────────────────────────────────────────────────────────
+(function() {
+  let running = false, breaths = 0;
+
+  function breathCycle() {
+    if (!running) return;
+    $('palm-breath-text').textContent = 'Inhale...';
+    $('palm-circle').style.width = '140px';
+    $('palm-circle').style.height = '140px';
+    $('palm-circle').style.background = '#58a6ff33';
+    $('palm-circle').style.borderColor = '#58a6ff88';
+    const iv1 = setTimeout(() => {
+      if (!running) return;
+      $('palm-breath-text').textContent = 'Hold...';
+      const iv2 = setTimeout(() => {
+        if (!running) return;
+        $('palm-breath-text').textContent = 'Exhale...';
+        $('palm-circle').style.width = '80px';
+        $('palm-circle').style.height = '80px';
+        $('palm-circle').style.background = '#58a6ff11';
+        $('palm-circle').style.borderColor = '#58a6ff33';
+        const iv3 = setTimeout(() => {
+          breaths++;
+          $('palm-breaths').textContent = breaths;
+          breathCycle();
+        }, 4000);
+        intervals.push(iv3);
+      }, 2000);
+      intervals.push(iv2);
+    }, 4000);
+    intervals.push(iv1);
+  }
+
+  $('palm-start').onclick = () => {
+    running = true; breaths = 0;
+    $('palm-breaths').textContent = '0';
+    $('palm-start').classList.add('hidden');
+    $('palm-stop').classList.remove('hidden');
+
+    const mins = parseInt($('palm-duration').value);
+    let secs = mins * 60;
+    $('palm-time').textContent = `${mins}:00`;
+
+    const countdown = setInterval(() => {
+      secs--;
+      const m = Math.floor(secs/60), s = secs%60;
+      $('palm-time').textContent = `${m}:${String(s).padStart(2,'0')}`;
+      if (secs <= 0) {
+        clearInterval(countdown);
+        running = false;
+        $('palm-breath-text').textContent = 'Done! 🌟';
+        $('palm-start').classList.remove('hidden');
+        $('palm-stop').classList.add('hidden');
+      }
+    }, 1000);
+    intervals.push(countdown);
+    breathCycle();
+  };
+
+  $('palm-stop').onclick = () => {
+    running = false; stopAll();
+    $('palm-start').classList.remove('hidden');
+    $('palm-stop').classList.add('hidden');
+    $('palm-breath-text').textContent = 'Ready';
+    $('palm-circle').style.width = '80px';
+    $('palm-circle').style.height = '80px';
+  };
+
+  $('palm-duration').oninput = e => $('palm-duration-val').textContent = e.target.value;
+})();
+
+// ─── 7. RDS STEREOGRAM ────────────────────────────────────────────────────────
+(function() {
+  const c = $('c-rds');
+  const ctx = c.getContext('2d');
+
+  const POSITIONS = ['top','bottom','left','right'];
+  const KEY_MAP   = { ArrowUp:'top', ArrowDown:'bottom', ArrowLeft:'left', ArrowRight:'right' };
+  let currentPos  = 'top';
+  let score = 0, streak = 0, timeLeft = 30, running = false;
+  let feedbackColor = null, feedbackTimer = null;
+  let waitingForKey = false;
+
+  // ── shape centre for each position ──────────────────────────────────────────
+  function shapeCentre(pos, cx, cy, r) {
+    const off = r * 0.42;
+    return {
+      top:    { sx: cx,       sy: cy - off },
+      bottom: { sx: cx,       sy: cy + off },
+      left:   { sx: cx - off, sy: cy       },
+      right:  { sx: cx + off, sy: cy       },
+    }[pos];
+  }
+
+  // ── generate one RDS frame ───────────────────────────────────────────────────
+  function generate(reveal = false) {
+    fitCanvas(c);
+    const W = c.width, H = c.height;
+    const cx = W/2, cy = H/2;
+    const r        = Math.min(W, H) * 0.44;
+    const hr       = r * 0.18;                       // hidden circle radius
+    const disp     = parseInt($('rds-disparity').value);
+    const dotSize  = parseInt($('rds-dotsize').value);
+    const { sx, sy } = shapeCentre(currentPos, cx, cy, r);
+
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
+    for (let i = 0; i < d.length; i += 4) d[i+3] = 255; // black fill
+
+    for (let y = 0; y < H; y += dotSize) {
+      for (let x = 0; x < W; x += dotSize) {
+        // clip to main circle
+        if ((x-cx)*(x-cx) + (y-cy)*(y-cy) > r*r) continue;
+        if (Math.random() < 0.5) continue;           // 50% density
+
+        // shift red channel if inside hidden circle
+        const inHidden = (x-sx)*(x-sx) + (y-sy)*(y-sy) < hr*hr;
+        const shift    = inHidden ? disp : 0;
+
+        for (let py = y; py < y+dotSize && py < H; py++) {
+          // RED dot — shifted for foreground shape
+          for (let px = x+shift; px < x+dotSize+shift && px < W; px++) {
+            if (px >= 0) d[(py*W+px)*4]   = 255;
+          }
+          // GREEN dot — at natural position
+          for (let px = x; px < x+dotSize && px < W; px++) {
+            d[(py*W+px)*4+1] = 255;
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // outer circle border
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.stroke();
+
+    // feedback flash overlay
+    if (feedbackColor) {
+      ctx.fillStyle = feedbackColor;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // reveal — draw dashed circle at correct position
+    if (reveal) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth   = 3;
+      ctx.setLineDash([8, 5]);
+      ctx.beginPath(); ctx.arc(sx, sy, hr, 0, Math.PI*2); ctx.stroke();
+      ctx.setLineDash([]);
+      // arrow label
+      const arrow = { top:'↑ Top', bottom:'↓ Bottom', left:'← Left', right:'→ Right' }[currentPos];
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 22px Segoe UI';
+      ctx.textAlign = 'center';
+      ctx.fillText(arrow, cx, cy + r + 32);
+    }
+
+    // direction hint arrows (dim, always shown)
+    const arrowHints = [
+      { label:'↑', x: cx,      y: cy - r*0.72 },
+      { label:'↓', x: cx,      y: cy + r*0.72 },
+      { label:'←', x: cx-r*0.72, y: cy         },
+      { label:'→', x: cx+r*0.72, y: cy         },
+    ];
+    ctx.font = 'bold 20px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    arrowHints.forEach(h => {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillText(h.label, h.x, h.y);
+    });
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // ── pick next random position (different from current) ──────────────────────
+  function nextRound() {
+    let next;
+    do { next = POSITIONS[Math.floor(Math.random() * 4)]; } while (next === currentPos);
+    currentPos    = next;
+    feedbackColor = null;
+    generate(false);
+    waitingForKey = true;
+  }
+
+  // ── keyboard handler ─────────────────────────────────────────────────────────
+  function onKey(e) {
+    if (!running || !waitingForKey) return;
+    const guess = KEY_MAP[e.key];
+    if (!guess) return;
+    e.preventDefault();
+    waitingForKey = false;
+
+    if (guess === currentPos) {
+      score++;  streak++;
+      $('rds-score').textContent  = score;
+      $('rds-streak').textContent = streak;
+      feedbackColor = 'rgba(63,185,80,0.25)';   // green flash
+    } else {
+      streak = 0;
+      $('rds-streak').textContent = 0;
+      feedbackColor = 'rgba(218,54,51,0.25)';   // red flash
+    }
+
+    // show flash briefly then move to next round
+    generate(false);
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => {
+      feedbackColor = null;
+      if (running) nextRound();
+    }, 600);
+  }
+
+  document.addEventListener('keydown', onKey);
+
+  // ── game timer ───────────────────────────────────────────────────────────────
+  function startGame() {
+    running = true; score = 0; streak = 0; timeLeft = 30;
+    $('rds-score').textContent  = '0';
+    $('rds-streak').textContent = '0';
+    $('rds-time').textContent   = '30';
+    $('rds-start').classList.add('hidden');
+    $('rds-stop').classList.remove('hidden');
+    $('rds-hint').textContent   = 'Use ↑ ↓ ← → arrow keys!';
+    currentPos = POSITIONS[Math.floor(Math.random() * 4)];
+    generate(false);
+    waitingForKey = true;
+
+    const iv = setInterval(() => {
+      timeLeft--;
+      $('rds-time').textContent = timeLeft;
+      if (timeLeft <= 0) {
+        clearInterval(iv);
+        running = false; waitingForKey = false;
+        $('rds-start').classList.remove('hidden');
+        $('rds-stop').classList.add('hidden');
+        // game-over overlay
+        fitCanvas(c);
+        ctx.fillStyle = 'rgba(13,17,23,0.75)';
+        ctx.fillRect(0, 0, c.width, c.height);
+        ctx.fillStyle = '#58a6ff';
+        ctx.font = 'bold 36px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Time's up!  Score: ${score}`, c.width/2, c.height/2 - 20);
+        ctx.fillStyle = '#8b949e';
+        ctx.font = '20px Segoe UI';
+        ctx.fillText(`Best streak: ${streak}`, c.width/2, c.height/2 + 24);
+        $('rds-hint').textContent = `Game over! Score: ${score}. Press Start Game to play again.`;
+      }
+    }, 1000);
+    intervals.push(iv);
+  }
+
+  $('rds-start').onclick = startGame;
+  $('rds-stop').onclick  = () => {
+    running = false; waitingForKey = false; stopAll();
+    $('rds-start').classList.remove('hidden');
+    $('rds-stop').classList.add('hidden');
+    $('rds-hint').textContent = 'Press Start Game to play.';
+  };
+  $('rds-reveal').onclick = () => generate(true);
+
+  $('rds-disparity').oninput = e => {
+    $('rds-disparity-val').textContent = e.target.value;
+    generate(false);
+  };
+  $('rds-dotsize').oninput = e => {
+    $('rds-dotsize-val').textContent = e.target.value;
+    generate(false);
+  };
+
+  new ResizeObserver(() => {
+    if (!$('ex-rds').classList.contains('hidden')) generate(false);
+  }).observe(c.parentElement);
+})();
+
+// ─── RDS mode switcher ────────────────────────────────────────────────────────
+let _rdsMode = 'game';
+function rdsSetMode(mode) {
+  _rdsMode = mode;
+  $('rds-game-ui').classList.toggle('hidden', mode !== 'game');
+  $('rds-conv-ui').classList.toggle('hidden', mode !== 'conv');
+  $('rds-comb-ui').classList.toggle('hidden', mode !== 'comb');
+  $('rds-tab-game').classList.toggle('active-tab', mode === 'game');
+  $('rds-tab-conv').classList.toggle('active-tab', mode === 'conv');
+  $('rds-tab-comb').classList.toggle('active-tab', mode === 'comb');
+  clearCanvas($('c-rds'));
+}
+// set initial tab style
+$('rds-tab-game').classList.add('active-tab');
+
+// ─── CONVERGENCE TEST ─────────────────────────────────────────────────────────
+(function() {
+  const c = $('c-rds');   // shares the same canvas as the RDS game
+  const ctx = c.getContext('2d');
+  let running = false, sep = 0, bestSep = null, attempts = 0;
+  let lastTime = null, convRaf = null;
+  const history = [];
+
+  // draw two random-dot filled circles (red + green) separated by `sep` pixels
+  function drawCircles(sep) {
+    fitCanvas(c);
+    const W = c.width, H = c.height;
+    const cx = W/2, cy = H/2;
+    const r  = Math.min(W, H) * 0.36;
+    const ds = parseInt($('conv-test-dotsize').value);
+    const dir = $('conv-test-dir').value;
+
+    // left-eye circle centre (red) and right-eye circle centre (green)
+    const lcx = dir === 'h' ? cx - sep/2 : cx;
+    const lcy = dir === 'h' ? cy         : cy - sep/2;
+    const rcx = dir === 'h' ? cx + sep/2 : cx;
+    const rcy = dir === 'h' ? cy         : cy + sep/2;
+
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
+    for (let i = 0; i < d.length; i += 4) d[i+3] = 255;
+
+    for (let y = 0; y < H; y += ds) {
+      for (let x = 0; x < W; x += ds) {
+        if (Math.random() < 0.5) continue;
+        const inL = (x-lcx)*(x-lcx) + (y-lcy)*(y-lcy) < r*r;
+        const inR = (x-rcx)*(x-rcx) + (y-rcy)*(y-rcy) < r*r;
+        if (!inL && !inR) continue;
+
+        for (let py = y; py < y+ds && py < H; py++) {
+          for (let px = x; px < x+ds && px < W; px++) {
+            const idx = (py*W+px)*4;
+            if (inL) d[idx]   = 255;   // red channel
+            if (inR) d[idx+1] = 255;   // green channel
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // separation label
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '15px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`Separation: ${Math.round(sep)}px`, cx, H - 14);
+
+    $('conv-test-sep').textContent = Math.round(sep);
+  }
+
+  function animate(ts) {
+    if (!running) return;
+    if (!lastTime) lastTime = ts;
+    const dt = (ts - lastTime) / 1000;
+    lastTime = ts;
+
+    const speed = parseFloat($('conv-test-speed').value) * 8;
+    sep += speed * dt;
+
+    // cap at canvas width
+    fitCanvas(c);
+    const maxSep = Math.min(c.width, c.height) * 0.72;
+    if (sep > maxSep) sep = maxSep;
+
+    drawCircles(sep);
+    convRaf = requestAnimationFrame(animate);
+  }
+
+  function record() {
+    if (!running) return;
+    const recorded = Math.round(sep);
+    running = false;
+    if (convRaf) { cancelAnimationFrame(convRaf); convRaf = null; }
+
+    attempts++;
+    history.push(recorded);
+    if (bestSep === null || recorded > bestSep) bestSep = recorded;
+
+    $('conv-test-best').textContent     = bestSep + 'px';
+    $('conv-test-attempts').textContent = attempts;
+    $('conv-test-history').textContent  =
+      'History: ' + history.map(v => v + 'px').join(' → ');
+
+    // flash overlay
+    ctx.fillStyle = 'rgba(218,54,51,0.3)';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 28px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Fusion lost at ${recorded}px`, c.width/2, c.height/2);
+
+    $('conv-test-start').classList.remove('hidden');
+    $('conv-test-stop').classList.add('hidden');
+  }
+
+  // SPACE key records fusion loss
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && _rdsMode === 'conv' && running) {
+      e.preventDefault();
+      record();
+    }
+  });
+
+  $('conv-test-start').onclick = () => {
+    if (_rdsMode !== 'conv') return;
+    running = true; sep = 0; lastTime = null;
+    $('conv-test-start').classList.add('hidden');
+    $('conv-test-stop').classList.remove('hidden');
+    $('conv-test-sep').textContent = '0';
+    convRaf = requestAnimationFrame(animate);
+  };
+
+  $('conv-test-stop').onclick = () => {
+    running = false;
+    if (convRaf) { cancelAnimationFrame(convRaf); convRaf = null; }
+    $('conv-test-start').classList.remove('hidden');
+    $('conv-test-stop').classList.add('hidden');
+  };
+
+  $('conv-test-record').onclick = record;
+
+  $('conv-test-speed').oninput   = e => $('conv-test-speed-val').textContent   = e.target.value;
+  $('conv-test-dotsize').oninput = e => $('conv-test-dotsize-val').textContent = e.target.value;
+  $('conv-test-dir').onchange    = () => { if (!running) drawCircles(sep); };
+})();
+
+// ─── COMBINED TEST ────────────────────────────────────────────────────────────
+(function() {
+  const c   = $('c-rds');
+  const ctx = c.getContext('2d');
+  const POSITIONS  = ['top','bottom','left','right'];
+  const KEY_MAP    = { ArrowUp:'top', ArrowDown:'bottom', ArrowLeft:'left', ArrowRight:'right' };
+  const WINDOW_SEC = 10;
+  const STEP_DIOPTER = 0.5;
+
+  let running = false;
+  let currentDiopter = 0;   // current vergence demand in Δ
+  let maxDiopter     = 0;   // highest Δ at which user answered correctly
+  let score          = 0;
+  let windowLeft     = WINDOW_SEC;
+  let currentPos     = 'top';
+  let answered       = false;
+  let feedbackColor  = null;
+  let windowIv       = null;
+  let combRaf        = null;
+  let lastTs         = null;
+  let feedbackMs     = 0;
+
+  // ── pixel separation from diopters ──────────────────────────────────────────
+  function diopterToPx(d) {
+    return d * (parseInt($('comb-pxd').value) / 0.5);
+  }
+
+  // ── draw frame ──────────────────────────────────────────────────────────────
+  function draw() {
+    fitCanvas(c);
+    const W = c.width, H = c.height;
+    const cx = W/2, cy = H/2;
+    const R        = Math.min(W,H) * 0.36;
+    const ds       = parseInt($('comb-dotsize').value);
+    const extraDisp = parseInt($('comb-disparity').value);
+    const baseSep  = diopterToPx(currentDiopter);
+
+    // big circle centres (horizontal separation)
+    const lcx = cx - baseSep/2;   // red circle center
+    const rcx = cx + baseSep/2;   // green circle center
+
+    // overlap region is always centred at (cx, cy)
+    const overlapR = Math.max(0, R - baseSep/2);
+
+    // fixed offset: 40% of overlap radius so position is clearly in one quadrant
+    const off = overlapR * 0.40;
+    const hr  = overlapR * 0.20;   // hidden circle radius
+
+    // positions are defined relative to the fused circle centre (cx, cy)
+    const positions = {
+      top:    { hx: cx,       hy: cy - off },
+      bottom: { hx: cx,       hy: cy + off },
+      left:   { hx: cx - off, hy: cy       },
+      right:  { hx: cx + off, hy: cy       },
+    };
+    const { hx, hy } = positions[currentPos];
+
+    // Hidden element must be at the same RELATIVE position within each circle so
+    // that after fusing (diverging by baseSep) the absolute retinal disparity is
+    // just extraDisp, not extraDisp+baseSep (which causes diplopia).
+    // Correct shifts: netHalf = halfDisp - baseSep/2
+    const halfDisp = Math.round(extraDisp / 2);
+    const netHalf  = halfDisp - Math.round(baseSep / 2);
+
+    const img = ctx.createImageData(W, H);
+    const d   = img.data;
+    for (let i = 0; i < d.length; i += 4) d[i+3] = 255;
+
+    for (let y = 0; y < H; y += ds) {
+      for (let x = 0; x < W; x += ds) {
+        if (Math.random() < 0.5) continue;
+        const inL = (x-lcx)*(x-lcx) + (y-cy)*(y-cy) < R*R;
+        const inR = (x-rcx)*(x-rcx) + (y-cy)*(y-cy) < R*R;
+        if (!inL && !inR) continue;
+
+        const inHidden = inL && inR && (x-hx)*(x-hx) + (y-hy)*(y-hy) < hr*hr;
+
+        const shiftR = inHidden ? netHalf : 0;
+        const shiftG = inHidden ? -netHalf : 0;
+
+        for (let py = y; py < y+ds && py < H; py++) {
+          if (inL) {
+            for (let px = x+shiftR; px < x+ds+shiftR && px < W; px++) {
+              if (px >= 0) d[(py*W+px)*4] = 255;    // R
+            }
+          }
+          if (inR) {
+            for (let px = x+shiftG; px < x+ds+shiftG && px < W; px++) {
+              if (px >= 0 && px < W) d[(py*W+px)*4+1] = 255;  // G
+            }
+          }
+        }
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // dim crosshair at overlap centre (cx,cy) — helps user identify reference point
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(cx - overlapR, cy); ctx.lineTo(cx + overlapR, cy);
+    ctx.moveTo(cx, cy - overlapR); ctx.lineTo(cx, cy + overlapR);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // feedback flash
+    if (feedbackColor) {
+      ctx.fillStyle = feedbackColor;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // direction hints — placed just inside the overlap boundary
+    const hintR = overlapR * 0.75;
+    const hints = [
+      { t:'↑', x:cx,           y:cy - hintR },
+      { t:'↓', x:cx,           y:cy + hintR },
+      { t:'←', x:cx - hintR,   y:cy         },
+      { t:'→', x:cx + hintR,   y:cy         },
+    ];
+    ctx.font = 'bold 22px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    hints.forEach(h => {
+      ctx.fillStyle = 'rgba(255,255,255,0.18)';
+      ctx.fillText(h.t, h.x, h.y);
+    });
+
+    // HUD: diopter + countdown bar
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#58a6ff';
+    ctx.font = 'bold 18px Segoe UI';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${currentDiopter.toFixed(1)}Δ`, 16, 28);
+
+    // countdown bar along top
+    const barW = (windowLeft / WINDOW_SEC) * W;
+    ctx.fillStyle = windowLeft <= 3 ? '#f78515' : '#58a6ff44';
+    ctx.fillRect(0, 0, barW, 5);
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '14px Segoe UI';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${windowLeft}s`, W - 12, 28);
+  }
+
+  // ── animation loop (redraws for feedback flash fade) ────────────────────────
+  function loop(ts) {
+    if (!running) return;
+    if (!lastTs) lastTs = ts;
+    const dt = ts - lastTs;
+    lastTs = ts;
+
+    if (feedbackColor) {
+      feedbackMs -= dt;
+      if (feedbackMs <= 0) feedbackColor = null;
+    }
+
+    draw();
+    combRaf = requestAnimationFrame(loop);
+  }
+
+  // ── advance diopter + restart window ────────────────────────────────────────
+  function advanceToNext() {
+    if (!running) return;
+    currentDiopter = Math.round((currentDiopter + STEP_DIOPTER) * 10) / 10;
+    // restart the countdown interval fresh
+    if (windowIv) { clearInterval(windowIv); windowIv = null; }
+    startWindow();
+    windowIv = setInterval(onTick, 1000);
+    intervals.push(windowIv);
+  }
+
+  // ── one tick of the countdown ────────────────────────────────────────────────
+  function onTick() {
+    if (!running) return;
+    windowLeft--;
+    $('comb-window').textContent = Math.max(0, windowLeft);
+    if (windowLeft <= 0) advanceToNext();
+  }
+
+  // ── start a new 10-second window ────────────────────────────────────────────
+  function startWindow() {
+    answered      = false;
+    windowLeft    = WINDOW_SEC;
+    feedbackColor = null;
+    let next;
+    do { next = POSITIONS[Math.floor(Math.random()*4)]; } while (next === currentPos);
+    currentPos = next;
+    $('comb-diopter').textContent = currentDiopter.toFixed(1) + 'Δ';
+    $('comb-window').textContent  = WINDOW_SEC;
+  }
+
+  // ── keyboard handler ─────────────────────────────────────────────────────────
+  function onKey(e) {
+    if (_rdsMode !== 'comb') return;
+    if (e.code === 'Space') {
+      e.preventDefault();
+      if (running) fusionLost();
+      return;
+    }
+    if (!running || answered) return;
+    const guess = KEY_MAP[e.key];
+    if (!guess) return;
+    e.preventDefault();
+    answered = true;
+
+    if (guess === currentPos) {
+      score++;
+      maxDiopter = Math.max(maxDiopter, currentDiopter);
+      $('comb-score').textContent = score;
+      $('comb-maxd').textContent  = maxDiopter.toFixed(1) + 'Δ';
+      feedbackColor = 'rgba(63,185,80,0.22)';
+      feedbackMs    = 500;
+      // correct → advance immediately after brief feedback flash
+      setTimeout(() => { if (running) advanceToNext(); }, 550);
+    } else {
+      feedbackColor = 'rgba(218,54,51,0.22)';
+      feedbackMs    = 500;
+      // wrong → just show flash, continue waiting out the window
+    }
+  }
+  document.addEventListener('keydown', onKey);
+
+  // ── fusion lost ──────────────────────────────────────────────────────────────
+  function fusionLost() {
+    running = false;
+    if (windowIv)  { clearInterval(windowIv); windowIv = null; }
+    if (combRaf)   { cancelAnimationFrame(combRaf); combRaf = null; }
+
+    fitCanvas(c); draw();
+    ctx.fillStyle = 'rgba(13,17,23,0.72)';
+    ctx.fillRect(0, 0, c.width, c.height);
+    ctx.fillStyle = '#58a6ff';
+    ctx.font = 'bold 32px Segoe UI';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Fusion lost at ${currentDiopter.toFixed(1)}Δ`, c.width/2, c.height/2 - 18);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '20px Segoe UI';
+    ctx.fillText(`Score: ${score} correct  |  Max fused: ${maxDiopter.toFixed(1)}Δ`, c.width/2, c.height/2 + 22);
+
+    $('comb-start').classList.remove('hidden');
+    $('comb-stop').classList.add('hidden');
+    $('comb-hint').textContent = `Session done. Max fused: ${maxDiopter.toFixed(1)}Δ, Score: ${score}`;
+  }
+
+  // ── start game ───────────────────────────────────────────────────────────────
+  $('comb-start').onclick = () => {
+    running = true; score = 0; currentDiopter = 0; maxDiopter = 0;
+    lastTs = null; feedbackColor = null;
+    $('comb-score').textContent = '0';
+    $('comb-maxd').textContent  = '—';
+    $('comb-start').classList.add('hidden');
+    $('comb-stop').classList.remove('hidden');
+    $('comb-hint').textContent = 'Use ↑ ↓ ← → for position. SPACE when you lose fusion.';
+    startWindow();
+    windowIv = setInterval(onTick, 1000);
+    intervals.push(windowIv);
+
+    combRaf = requestAnimationFrame(loop);
+  };
+
+  $('comb-stop').onclick = () => {
+    running = false;
+    if (windowIv)  { clearInterval(windowIv); windowIv = null; }
+    if (combRaf)   { cancelAnimationFrame(combRaf); combRaf = null; }
+    $('comb-start').classList.remove('hidden');
+    $('comb-stop').classList.add('hidden');
+    clearCanvas(c);
+  };
+
+  $('comb-fusion-lost').onclick = () => { if (running) fusionLost(); };
+
+  $('comb-pxd').oninput      = e => $('comb-pxd-val').textContent      = e.target.value;
+  $('comb-dotsize').oninput  = e => $('comb-dotsize-val').textContent  = e.target.value;
+  $('comb-disparity').oninput = e => $('comb-disparity-val').textContent = e.target.value;
+})();
+
+// ─── 8. CONVERGENCE RINGS ─────────────────────────────────────────────────────
+(function() {
+  const c = $('c-convergence');
+  const ctx = c.getContext('2d');
+  let running = false, animT = 0, lastTime = null;
+  const NUMBERS = ['3','7','2','5','9','4','6'];
+  let currentNum = '5';
+
+  function drawRings(sep) {
+    fitCanvas(c);
+    const W = c.width, H = c.height;
+    const cx = W/2, cy = H/2;
+    const r  = Math.min(W, H) * 0.28;
+    const lx = cx - sep/2; // left circle centre
+    const rx = cx + sep/2; // right circle centre
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, W, H);
+
+    // Fixation dot in centre (helps with alignment)
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#ffffff44';
+    ctx.fill();
+
+    // ── Left circle (RED — seen by left eye through red lens) ──
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(lx, cy, r, 0, Math.PI*2);
+    ctx.stroke();
+
+    // inner tick marks (red)
+    for (let a = 0; a < 360; a += 30) {
+      const rad = a * Math.PI/180;
+      const inner = r - 14, outer = r - 4;
+      ctx.beginPath();
+      ctx.moveTo(lx + inner*Math.cos(rad), cy + inner*Math.sin(rad));
+      ctx.lineTo(lx + outer*Math.cos(rad), cy + outer*Math.sin(rad));
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // number inside LEFT circle (red — hidden from right eye through green lens)
+    ctx.fillStyle = '#ff0000';
+    ctx.font = `bold ${r*0.7}px Segoe UI`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(currentNum, lx, cy);
+
+    // ── Right circle (GREEN — seen by right eye through green lens) ──
+    ctx.strokeStyle = '#00cc00';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(rx, cy, r, 0, Math.PI*2);
+    ctx.stroke();
+
+    // inner tick marks (green)
+    for (let a = 0; a < 360; a += 30) {
+      const rad = a * Math.PI/180;
+      const inner = r - 14, outer = r - 4;
+      ctx.beginPath();
+      ctx.moveTo(rx + inner*Math.cos(rad), cy + inner*Math.sin(rad));
+      ctx.lineTo(rx + outer*Math.cos(rad), cy + outer*Math.sin(rad));
+      ctx.strokeStyle = '#00cc00';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // white crosshair inside right circle (seen by both eyes when fused)
+    ctx.strokeStyle = '#ffffff33';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(rx - r*0.4, cy); ctx.lineTo(rx + r*0.4, cy);
+    ctx.moveTo(rx, cy - r*0.4); ctx.lineTo(rx, cy + r*0.4);
+    ctx.stroke();
+
+    // separation label
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '14px Segoe UI';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(`Separation: ${Math.round(sep)}px`, cx, H - 20);
+  }
+
+  function animLoop(ts) {
+    if (!running) return;
+    if (!lastTime) lastTime = ts;
+    const dt = (ts - lastTime)/1000;
+    lastTime = ts;
+
+    const mode = $('conv-mode').value;
+    const baseSep = parseInt($('conv-sep').value);
+
+    if (mode === 'breathing') {
+      animT += dt * 0.4;
+      const sep = baseSep + Math.sin(animT) * 40;
+      drawRings(sep);
+    } else if (mode === 'jump') {
+      animT += dt;
+      // jump between two separations every 2 seconds
+      const sep = (Math.floor(animT / 2) % 2 === 0) ? baseSep : baseSep * 0.5;
+      drawRings(sep);
+    } else {
+      drawRings(baseSep);
+    }
+    raf = requestAnimationFrame(animLoop);
+  }
+
+  $('conv-start').onclick = () => {
+    running = true; animT = 0; lastTime = null;
+    currentNum = NUMBERS[Math.floor(Math.random()*NUMBERS.length)];
+    $('conv-start').classList.add('hidden');
+    $('conv-stop').classList.remove('hidden');
+    raf = requestAnimationFrame(animLoop);
+  };
+  $('conv-stop').onclick = () => {
+    running = false;
+    $('conv-start').classList.remove('hidden');
+    $('conv-stop').classList.add('hidden');
+    cancelAnimationFrame(raf);
+  };
+  $('conv-sep').oninput = e => {
+    $('conv-sep-val').textContent = e.target.value;
+    if (!running) drawRings(parseInt(e.target.value));
+  };
+  $('conv-mode').onchange = () => {
+    if (!running) drawRings(parseInt($('conv-sep').value));
+  };
+
+  // draw preview on tab load
+  new ResizeObserver(() => {
+    if (!$('ex-convergence').classList.contains('hidden'))
+      drawRings(parseInt($('conv-sep').value));
+  }).observe(c.parentElement);
+})();
+</script>
+</body>
+</html>
