@@ -69,8 +69,8 @@
 
     .canvas-wrap {
       position: relative;
-      width: 95vw;
-      max-width: 1400px;
+      width: 99vw;
+      max-width: 2400px;
       height: calc(100vh - 260px);
       min-height: 400px;
       background: #161b22;
@@ -1379,10 +1379,11 @@ $('rds-tab-game').classList.add('active-tab');
     fitCanvas(c);
     const W = c.width, H = c.height;
     const cx = W/2, cy = H/2;
-    const R        = Math.min(W,H) * 0.36;
-    const ds       = parseInt($('comb-dotsize').value);
+    const ds        = parseInt($('comb-dotsize').value);
     const extraDisp = parseInt($('comb-disparity').value);
-    const baseSep  = diopterToPx(currentDiopter);
+    const baseSep   = diopterToPx(currentDiopter);
+    // Cap R so both circles always fit within the canvas width
+    const R = Math.min(Math.min(W,H) * 0.36, (W - baseSep) / 2 * 0.92);
 
     // big circle centres (horizontal separation)
     const lcx = cx - baseSep/2;   // red circle center
