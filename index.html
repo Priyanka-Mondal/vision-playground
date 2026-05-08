@@ -1400,54 +1400,50 @@ $('rds-tab-game').classList.add('active-tab');
     };
     const { hx, hy } = positions[currentPos];
 
-    // Hidden element must be at the same RELATIVE position within each circle so
-    // that after fusing (diverging by baseSep) the absolute retinal disparity is
-    // just extraDisp, not extraDisp+baseSep (which causes diplopia).
-    // Correct shifts: netHalf = halfDisp - baseSep/2
-    const halfDisp = Math.round(extraDisp / 2);
-    const netHalf  = halfDisp - Math.round(baseSep / 2);
+    // Proper RDS: pre-generate one shared random dot field.
+    // Background: both channels read the same field position → identical pattern → zero disparity → invisible monocularly.
+    // Hidden region: left channel reads field[gx + 2*shift], right channel reads field[gx].
+    //   The brain's stereo matcher finds the hidden region's left pattern at gx matches
+    //   the right pattern at gx+2*shift → disparity = 2*shift*ds ≈ extraDisp → depth pop.
+    // No dots are physically moved, so there are no holes or black circles.
+    const shift = Math.max(1, Math.round(extraDisp / 2 / ds)); // shift in grid cells
 
-    const img = ctx.createImageData(W, H);
-    const d   = img.data;
-    for (let i = 0; i < d.length; i += 4) d[i+3] = 255;
+    const gcols = Math.ceil(W / ds) + 2 * shift + 4;
+    const grows = Math.ceil(H / ds) + 2;
+    const rand  = new Uint8Array(gcols * grows);
+    for (let i = 0; i < rand.length; i++) rand[i] = Math.random() < 0.5 ? 1 : 0;
 
-    for (let y = 0; y < H; y += ds) {
-      for (let x = 0; x < W; x += ds) {
-        if (Math.random() < 0.5) continue;
+    const img  = ctx.createImageData(W, H);
+    const data = img.data;
+    for (let i = 0; i < data.length; i += 4) data[i+3] = 255;
+
+    const gcolsVis = Math.ceil(W / ds);
+    for (let gy = 0; gy < grows; gy++) {
+      const y = gy * ds;
+      if (y >= H) break;
+      for (let gx = 0; gx < gcolsVis; gx++) {
+        const x = gx * ds;
         const inL = (x-lcx)*(x-lcx) + (y-cy)*(y-cy) < R*R;
         const inR = (x-rcx)*(x-rcx) + (y-cy)*(y-cy) < R*R;
         if (!inL && !inR) continue;
 
-        const inHidden = inL && inR && (x-hx)*(x-hx) + (y-hy)*(y-hy) < hr*hr;
+        const inHid = (x-hx)*(x-hx) + (y-hy)*(y-hy) < hr*hr;
 
-        const shiftR = inHidden ? netHalf : 0;
-        const shiftG = inHidden ? -netHalf : 0;
+        // background: both use gx+shift  →  same value  →  no disparity
+        // hidden left: gx+2*shift,  hidden right: gx  →  disparity ≈ extraDisp
+        const lLookup = gy * gcols + (inHid ? gx + 2*shift : gx + shift);
+        const rLookup = gy * gcols + (inHid ? gx           : gx + shift);
 
         for (let py = y; py < y+ds && py < H; py++) {
-          if (inL) {
-            for (let px = x+shiftR; px < x+ds+shiftR && px < W; px++) {
-              if (px >= 0) d[(py*W+px)*4] = 255;    // R
-            }
-          }
-          if (inR) {
-            for (let px = x+shiftG; px < x+ds+shiftG && px < W; px++) {
-              if (px >= 0 && px < W) d[(py*W+px)*4+1] = 255;  // G
-            }
+          for (let px = x; px < x+ds && px < W; px++) {
+            const idx = (py * W + px) * 4;
+            if (inL && rand[lLookup]) data[idx]   = 255; // R
+            if (inR && rand[rLookup]) data[idx+1] = 255; // G
           }
         }
       }
     }
     ctx.putImageData(img, 0, 0);
-
-    // dim crosshair at overlap centre (cx,cy) — helps user identify reference point
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.moveTo(cx - overlapR, cy); ctx.lineTo(cx + overlapR, cy);
-    ctx.moveTo(cx, cy - overlapR); ctx.lineTo(cx, cy + overlapR);
-    ctx.stroke();
-    ctx.setLineDash([]);
 
     // feedback flash
     if (feedbackColor) {
