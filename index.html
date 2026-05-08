@@ -1402,23 +1402,20 @@ $('rds-tab-game').classList.add('active-tab');
     };
     const { rx, ry } = relPos[currentPos];
 
-    // Absolute centres of the hidden disc in each channel
-    const lhx = lcx + rx,  lhy = cy + ry;   // red   circle hidden centre
-    const rhx = rcx + rx,  rhy = cy + ry;   // green circle hidden centre
-
-    const overlapR = Math.max(0, R - baseSep/2); // still used for hint placement
-
-    // Proper RDS: pre-generate one shared random dot field.
-    // Background: both channels read the same field position → identical pattern → zero disparity → invisible monocularly.
-    // Hidden region: left channel reads field[gx + 2*shift], right channel reads field[gx].
-    //   The brain's stereo matcher finds the hidden region's left pattern at gx matches
-    //   the right pattern at gx+2*shift → disparity = 2*shift*ds ≈ extraDisp → depth pop.
-    // No dots are physically moved, so there are no holes or black circles.
-    const shift = Math.max(1, Math.round(extraDisp / 2 / ds)); // shift in grid cells
-
-    const gcols = Math.ceil(W / ds) + 2 * shift + 4;
-    const grows = Math.ceil(H / ds) + 2;
+    // The random field is indexed by RETINAL coordinates (relative to each circle's
+    // own centre). Both circles therefore show the same base pattern at the same
+    // relative position regardless of how far apart they are on screen (baseSep).
+    // Background: both channels use the same retinal index → perfect correlation → flat.
+    // Hidden disc: left channel gets index+shift, right gets index-shift → disparity
+    //   = 2*shift*ds ≈ extraDisp → depth pop that works at any diopter level.
+    const shift  = Math.max(1, Math.round(extraDisp / 2 / ds));
+    const halfRc = Math.ceil(R / ds) + 1;          // half-width of circle in grid cells
+    const grxOff = halfRc + shift + 1;             // offset so all indices stay ≥ 0
+    const gryOff = halfRc + 1;
+    const gcols  = 2 * halfRc + 2 * shift + 4;
+    const grows  = 2 * halfRc + 4;
     const needed = gcols * grows;
+
     const now = performance.now();
     if (!cachedRand || cachedRandSize !== needed || now - lastRandTime > DOT_REFRESH_MS) {
       cachedRand = new Uint8Array(needed);
@@ -1432,35 +1429,41 @@ $('rds-tab-game').classList.add('active-tab');
     const data = img.data;
     for (let i = 0; i < data.length; i += 4) data[i+3] = 255;
 
-    const gcolsVis = Math.ceil(W / ds);
-    for (let gy = 0; gy < grows; gy++) {
-      const y = gy * ds;
-      if (y >= H) break;
-      for (let gx = 0; gx < gcolsVis; gx++) {
-        const x = gx * ds;
-        const inL = (x-lcx)*(x-lcx) + (y-cy)*(y-cy) < R*R;
-        const inR = (x-rcx)*(x-rcx) + (y-cy)*(y-cy) < R*R;
-        if (!inL && !inR) continue;
+    // One loop over retinal grid — applied to both circles simultaneously
+    for (let gry = 0; gry < grows; gry++) {
+      const yRel = (gry - gryOff) * ds;            // y relative to circle centre
+      const y    = Math.round(cy + yRel);
+      if (y < 0 || y >= H) continue;
 
-        // hidden region is checked independently per channel at each circle's own centre
-        const inHidL = inL && (x-lhx)*(x-lhx) + (y-lhy)*(y-lhy) < hr*hr;
-        const inHidR = inR && (x-rhx)*(x-rhx) + (y-rhy)*(y-rhy) < hr*hr;
+      for (let grx = -halfRc; grx <= halfRc; grx++) {
+        const xRel = grx * ds;                      // x relative to circle centre
+        if (xRel * xRel + yRel * yRel >= R * R) continue; // outside circle
 
-        // background: both use gx+shift  →  same value  →  no disparity
-        // hidden left: gx+2*shift,  hidden right: gx  →  disparity ≈ extraDisp
-        const lLookup = gy * gcols + (inHidL ? gx + 2*shift : gx + shift);
-        const rLookup = gy * gcols + (inHidR ? gx            : gx + shift);
+        const inHid = (xRel - rx) * (xRel - rx) + (yRel - ry) * (yRel - ry) < hr * hr;
 
-        for (let py = y; py < y+ds && py < H; py++) {
-          for (let px = x; px < x+ds && px < W; px++) {
-            const idx = (py * W + px) * 4;
-            if (inL && rand[lLookup]) data[idx]   = 255; // R
-            if (inR && rand[rLookup]) data[idx+1] = 255; // G
-          }
+        const gi      = gry * gcols + (grx + grxOff);
+        const lLookup = inHid ? gi + shift : gi;   // red:   shift right in hidden
+        const rLookup = inHid ? gi - shift : gi;   // green: shift left  in hidden
+
+        // Red dot at screen (lcx + xRel, y)
+        const xl = Math.round(lcx + xRel);
+        if (xl >= 0 && xl < W && rand[lLookup]) {
+          for (let py = y; py < y+ds && py < H; py++)
+            for (let px = xl; px < xl+ds && px < W; px++)
+              data[(py*W+px)*4] = 255;
+        }
+        // Green dot at screen (rcx + xRel, y)
+        const xr = Math.round(rcx + xRel);
+        if (xr >= 0 && xr < W && rand[rLookup]) {
+          for (let py = y; py < y+ds && py < H; py++)
+            for (let px = xr; px < xr+ds && px < W; px++)
+              data[(py*W+px)*4+1] = 255;
         }
       }
     }
     ctx.putImageData(img, 0, 0);
+
+    const overlapR = Math.max(0, R - baseSep/2); // for hint placement only
 
     // feedback flash
     if (feedbackColor) {
@@ -1469,7 +1472,7 @@ $('rds-tab-game').classList.add('active-tab');
     }
 
     // direction hints — placed just inside the overlap boundary
-    const hintR = overlapR * 0.75;
+    const hintR = R * 0.65; // fixed fraction of R so hints stay visible at any diopter
     const hints = [
       { t:'↑', x:cx,           y:cy - hintR },
       { t:'↓', x:cx,           y:cy + hintR },
