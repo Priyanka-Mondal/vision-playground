@@ -1384,21 +1384,25 @@ $('rds-tab-game').classList.add('active-tab');
     const lcx = cx - baseSep/2;   // red circle center
     const rcx = cx + baseSep/2;   // green circle center
 
-    // overlap region is always centred at (cx, cy)
-    const overlapR = Math.max(0, R - baseSep/2);
+    // Position the hidden element relative to each circle's OWN centre using a
+    // fixed fraction of R. This keeps it in a clear quadrant regardless of how
+    // far apart the circles have drifted (large baseSep / high diopter).
+    const off = R * 0.35;
+    const hr  = R * 0.18;
 
-    // fixed offset: 40% of overlap radius so position is clearly in one quadrant
-    const off = overlapR * 0.40;
-    const hr  = overlapR * 0.20;   // hidden circle radius
-
-    // positions are defined relative to the fused circle centre (cx, cy)
-    const positions = {
-      top:    { hx: cx,       hy: cy - off },
-      bottom: { hx: cx,       hy: cy + off },
-      left:   { hx: cx - off, hy: cy       },
-      right:  { hx: cx + off, hy: cy       },
+    const relPos = {
+      top:    { rx: 0,    ry: -off },
+      bottom: { rx: 0,    ry: +off },
+      left:   { rx: -off, ry: 0    },
+      right:  { rx: +off, ry: 0    },
     };
-    const { hx, hy } = positions[currentPos];
+    const { rx, ry } = relPos[currentPos];
+
+    // Absolute centres of the hidden disc in each channel
+    const lhx = lcx + rx,  lhy = cy + ry;   // red   circle hidden centre
+    const rhx = rcx + rx,  rhy = cy + ry;   // green circle hidden centre
+
+    const overlapR = Math.max(0, R - baseSep/2); // still used for hint placement
 
     // Proper RDS: pre-generate one shared random dot field.
     // Background: both channels read the same field position → identical pattern → zero disparity → invisible monocularly.
@@ -1427,12 +1431,14 @@ $('rds-tab-game').classList.add('active-tab');
         const inR = (x-rcx)*(x-rcx) + (y-cy)*(y-cy) < R*R;
         if (!inL && !inR) continue;
 
-        const inHid = (x-hx)*(x-hx) + (y-hy)*(y-hy) < hr*hr;
+        // hidden region is checked independently per channel at each circle's own centre
+        const inHidL = inL && (x-lhx)*(x-lhx) + (y-lhy)*(y-lhy) < hr*hr;
+        const inHidR = inR && (x-rhx)*(x-rhx) + (y-rhy)*(y-rhy) < hr*hr;
 
         // background: both use gx+shift  →  same value  →  no disparity
         // hidden left: gx+2*shift,  hidden right: gx  →  disparity ≈ extraDisp
-        const lLookup = gy * gcols + (inHid ? gx + 2*shift : gx + shift);
-        const rLookup = gy * gcols + (inHid ? gx           : gx + shift);
+        const lLookup = gy * gcols + (inHidL ? gx + 2*shift : gx + shift);
+        const rLookup = gy * gcols + (inHidR ? gx            : gx + shift);
 
         for (let py = y; py < y+ds && py < H; py++) {
           for (let px = x; px < x+ds && px < W; px++) {
