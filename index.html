@@ -1364,6 +1364,10 @@ $('rds-tab-game').classList.add('active-tab');
   let combRaf        = null;
   let lastTs         = null;
   let feedbackMs     = 0;
+  let cachedRand     = null;   // shared dot field, refreshed every DOT_REFRESH_MS
+  let cachedRandSize = 0;
+  let lastRandTime   = 0;
+  const DOT_REFRESH_MS = 1500; // hold pattern for 1.5s so eyes can fuse, then refresh
 
   // ── pixel separation from diopters ──────────────────────────────────────────
   function diopterToPx(d) {
@@ -1414,8 +1418,15 @@ $('rds-tab-game').classList.add('active-tab');
 
     const gcols = Math.ceil(W / ds) + 2 * shift + 4;
     const grows = Math.ceil(H / ds) + 2;
-    const rand  = new Uint8Array(gcols * grows);
-    for (let i = 0; i < rand.length; i++) rand[i] = Math.random() < 0.5 ? 1 : 0;
+    const needed = gcols * grows;
+    const now = performance.now();
+    if (!cachedRand || cachedRandSize !== needed || now - lastRandTime > DOT_REFRESH_MS) {
+      cachedRand = new Uint8Array(needed);
+      for (let i = 0; i < needed; i++) cachedRand[i] = Math.random() < 0.5 ? 1 : 0;
+      cachedRandSize = needed;
+      lastRandTime = now;
+    }
+    const rand = cachedRand;
 
     const img  = ctx.createImageData(W, H);
     const data = img.data;
@@ -1531,6 +1542,8 @@ $('rds-tab-game').classList.add('active-tab');
     answered      = false;
     windowLeft    = WINDOW_SEC;
     feedbackColor = null;
+    cachedRand    = null;  // force fresh dot pattern on each new question
+    lastRandTime  = 0;
     let next;
     do { next = POSITIONS[Math.floor(Math.random()*4)]; } while (next === currentPos);
     currentPos = next;
